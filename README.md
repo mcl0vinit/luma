@@ -13,8 +13,16 @@ CLI for authenticated Luma exploration and event data retrieval, designed for bo
 
 ## Install as CLI
 
+From GitHub:
+
 ```bash
-bun install -g .
+bun add -g github:mcl0vinit/luma
+```
+
+From a local checkout:
+
+```bash
+bun add -g "file:$PWD"
 ```
 
 ## Auth from Chrome (Option B)
