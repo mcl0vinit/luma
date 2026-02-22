@@ -8,7 +8,9 @@ CLI for authenticated Luma event discovery and event detail retrieval.
 - Shows active account (`whoami`).
 - Searches across events, discover entities, calendars, and help content.
 - Discovers events by city/category slug.
+- Lists your upcoming events feed (`mine`).
 - Resolves event URL/slug to `event_api_id` and fetches full event details.
+- Registers for events (`register`) and cancels registrations (`cancel`).
 - Provides an automation-oriented command guide (`luma llm`).
 
 ## Install
@@ -66,6 +68,10 @@ luma search "ai miami" --columns type,name,url
 luma discover --slug ai --limit 20
 luma discover --slug miami --limit 30 --json
 luma discover --slug miami --format table --columns name,start_at,url
+luma mine --limit 20
+luma mine --json
+luma register https://luma.com/dtpe78ne --dry-run
+luma cancel https://luma.com/dtpe78ne --dry-run
 luma event https://luma.com/dtpe78ne
 luma event evt-<event_api_id> --json
 ```

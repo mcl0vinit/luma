@@ -1,5 +1,15 @@
+import { readFileSync } from "node:fs";
 import { importFromChrome, listChromeProfiles } from "./chrome-auth";
-import { discoverEvents, getEvent, resolveEventApiId, searchEvents, whoAmI } from "./luma-client";
+import {
+  cancelRegistration,
+  discoverEvents,
+  getEvent,
+  getMyEvents,
+  registerForEvent,
+  resolveEventApiId,
+  searchEvents,
+  whoAmI,
+} from "./luma-client";
 import { getSessionFilePath, loadSession, saveSession, sessionFromCookieHeader } from "./store";
 
 type OutputFormat = "table" | "json" | "ndjson";
@@ -144,6 +154,9 @@ function usage() {
   whoami [--json]
   search "<query>" [--limit 20] [--type event,discover,calendar,help] [--format table|json|ndjson] [--columns col1,col2]
   discover --slug <slug> [--limit 20] [--lat N --lng N] [--format table|json|ndjson] [--columns col1,col2]
+  mine [--limit 20] [--cursor token] [--format table|json|ndjson] [--columns col1,col2]
+  register <url|slug|event_api_id> [--name "Name"] [--email "me@x.com"] [--answers-file ./answers.json] [--dry-run]
+  cancel <url|slug|event_api_id> [--message "optional"] [--dry-run]
   event <url|slug|event_api_id> [--json]`);
 }
 
@@ -173,6 +186,12 @@ Command Contract
   - Uses /discover/get-paginated-events. Works with category or place slugs (ai, miami, sf, etc).
 - luma event <url|slug|event_api_id> --json
   - Resolves slug/url to event_api_id via page __NEXT_DATA__, then fetches /event/get.
+- luma mine --json
+  - Returns your home events feed via /home/get-events.
+- luma register <url|slug|event_api_id>
+  - Registers for an event via /event/register.
+- luma cancel <url|slug|event_api_id>
+  - Cancels your registration via /event/decline-my-registration.
 
 Ergonomic Agent Workflow
 1) Ensure auth
@@ -226,6 +245,9 @@ function llmGuideJson() {
         "Uses /discover/get-paginated-events for category/place slugs (ai, miami, sf, etc).",
       "luma event <url|slug|event_api_id> --json":
         "Resolves slug/url to event_api_id via page __NEXT_DATA__, then fetches /event/get.",
+      "luma mine --json": "Returns your home events feed via /home/get-events.",
+      "luma register <url|slug|event_api_id>": "Registers for an event via /event/register.",
+      "luma cancel <url|slug|event_api_id>": "Cancels your registration via /event/decline-my-registration.",
     },
     ergonomic_agent_workflow: [
       "Ensure auth via luma whoami --json; import auth and retry if needed.",
@@ -385,6 +407,82 @@ export async function runCli(argv: string[]) {
       return;
     }
     outputRows(entries, outputFormat, { columns });
+    return;
+  }
+
+  if (cmd === "mine") {
+    const outputFormat = readFormat(args);
+    const columns = readFlagList(args, "--columns");
+    const session = requireSession();
+    const response = await getMyEvents(session, {
+      limit: Number(readFlagValue(args, "--limit", "-l") ?? "20"),
+      cursor: readFlagValue(args, "--cursor"),
+    });
+    const entries = response.entries.map((entry) => ({ type: "event", ...eventRow(entry) }));
+    if (outputFormat === "json") {
+      printJson({ has_more: !!response.has_more, next_cursor: response.next_cursor ?? null, entries });
+      return;
+    }
+    outputRows(entries, outputFormat, { columns });
+    return;
+  }
+
+  if (cmd === "register") {
+    const input = args[1];
+    if (!input) throw new Error("Missing event input (url, slug, or evt-...)");
+    const session = requireSession();
+    const eventApiId = await resolveEventApiId(input, session);
+    const event = await getEvent(eventApiId, session);
+
+    const name = readFlagValue(args, "--name");
+    const email = readFlagValue(args, "--email");
+    const answersFile = readFlagValue(args, "--answers-file");
+    const dryRun = hasFlag(args, "--dry-run");
+
+    let registrationAnswers: Array<{ api_id: string; value: string | string[] }> = [];
+    if (answersFile) {
+      const parsed = JSON.parse(readFileSync(answersFile, "utf8")) as Array<{ api_id: string; value: string | string[] }>;
+      if (!Array.isArray(parsed)) throw new Error("--answers-file must be a JSON array");
+      registrationAnswers = parsed;
+    }
+
+    const firstTicketTypeId: string | undefined = event.ticket_types?.[0]?.api_id;
+    const ticket_type_to_selection = firstTicketTypeId ? { [firstTicketTypeId]: 1 } : undefined;
+
+    const payload = {
+      event_api_id: eventApiId,
+      name,
+      email,
+      registration_answers: registrationAnswers,
+      ticket_type_to_selection,
+    };
+
+    if (dryRun) {
+      printJson({ dry_run: true, payload });
+      return;
+    }
+
+    const response = await registerForEvent(session, payload);
+    printJson({ ok: true, event_api_id: eventApiId, response });
+    return;
+  }
+
+  if (cmd === "cancel") {
+    const input = args[1];
+    if (!input) throw new Error("Missing event input (url, slug, or evt-...)");
+    const session = requireSession();
+    const eventApiId = await resolveEventApiId(input, session);
+    const message = readFlagValue(args, "--message");
+    const dryRun = hasFlag(args, "--dry-run");
+    const payload = { event_api_id: eventApiId, decline_message: message ?? null };
+
+    if (dryRun) {
+      printJson({ dry_run: true, payload });
+      return;
+    }
+
+    const response = await cancelRegistration(session, payload);
+    printJson({ ok: true, event_api_id: eventApiId, response });
     return;
   }
 

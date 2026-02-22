@@ -30,6 +30,20 @@ export type SearchResponse = {
   help_pages?: Array<{ title?: string; slug?: string }>;
 };
 
+export type HomeEventsResponse = {
+  entries: LumaEventEntry[];
+  has_more?: boolean;
+  next_cursor?: string;
+};
+
+export type RegisterRequest = {
+  event_api_id: string;
+  name?: string;
+  email?: string;
+  registration_answers?: Array<{ api_id: string; value: string | string[] }>;
+  ticket_type_to_selection?: Record<string, number>;
+};
+
 async function requestJson(url: string, session?: SessionStore, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   if (session) headers.set("cookie", cookieHeaderForLuma(session));
@@ -124,4 +138,35 @@ export async function resolveEventApiId(input: string, session?: SessionStore) {
 export async function getEvent(eventApiId: string, session?: SessionStore) {
   const url = `https://api2.luma.com/event/get?event_api_id=${encodeURIComponent(eventApiId)}`;
   return requestJson(url, session);
+}
+
+export async function getMyEvents(session: SessionStore, args?: { limit?: number; cursor?: string; eventTarget?: string }) {
+  const params = new URLSearchParams({
+    pagination_limit: String(args?.limit ?? 20),
+    event_target: args?.eventTarget ?? "go_to",
+  });
+  if (args?.cursor) params.set("pagination_cursor", args.cursor);
+  const url = `https://api2.luma.com/home/get-events?${params.toString()}`;
+  return (await requestJson(url, session)) as HomeEventsResponse;
+}
+
+export async function registerForEvent(session: SessionStore, payload: RegisterRequest) {
+  const url = "https://api2.luma.com/event/register";
+  return requestJson(url, session, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function cancelRegistration(session: SessionStore, payload: { event_api_id: string; decline_message?: string | null }) {
+  const url = "https://api2.luma.com/event/decline-my-registration";
+  return requestJson(url, session, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      event_api_id: payload.event_api_id,
+      decline_message: payload.decline_message ?? null,
+    }),
+  });
 }
