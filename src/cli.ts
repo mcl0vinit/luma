@@ -2,6 +2,10 @@ import { importFromChrome, listChromeProfiles } from "./chrome-auth";
 import { discoverEvents, getEvent, resolveEventApiId, searchEvents, whoAmI } from "./luma-client";
 import { getSessionFilePath, loadSession, saveSession, sessionFromCookieHeader } from "./store";
 
+type OutputFormat = "table" | "json" | "ndjson";
+type SearchRowType = "event" | "discover" | "calendar" | "help";
+type GenericRow = Record<string, string | number | boolean | null | undefined>;
+
 function printJson(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
 }
@@ -28,6 +32,92 @@ function readFlagValue(args: string[], ...names: string[]) {
   return undefined;
 }
 
+function readFlagList(args: string[], ...names: string[]) {
+  const value = readFlagValue(args, ...names);
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function readFormat(args: string[]): OutputFormat {
+  if (hasFlag(args, "--json")) return "json";
+  const format = readFlagValue(args, "--format");
+  if (format === "json" || format === "ndjson" || format === "table") return format;
+  return "table";
+}
+
+function truncate(value: string, max: number) {
+  if (max < 4) return value.slice(0, max);
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function renderRows(rows: GenericRow[], opts?: { columns?: string[] }) {
+  if (rows.length === 0) {
+    console.log("(no results)");
+    return;
+  }
+
+  const preferred = opts?.columns?.length ? opts.columns : Object.keys(rows[0]);
+  const columns = preferred.filter((column) => rows.some((row) => row[column] != null && String(row[column]).length > 0));
+  if (columns.length === 0) {
+    console.log("(no results)");
+    return;
+  }
+
+  const termWidth = process.stdout.columns || 120;
+  const maxPerColumn = 48;
+  const minPerColumn = 8;
+
+  const widths: Record<string, number> = {};
+  for (const column of columns) {
+    const header = column.toUpperCase();
+    const longestCell = Math.max(...rows.map((row) => String(row[column] ?? "").length), header.length);
+    widths[column] = Math.max(minPerColumn, Math.min(maxPerColumn, longestCell));
+  }
+
+  const separatorBudget = columns.length - 1;
+  let total = Object.values(widths).reduce((sum, width) => sum + width, 0) + separatorBudget;
+  if (total > termWidth) {
+    const shrinkable = columns.filter((column) => widths[column] > minPerColumn);
+    let idx = 0;
+    while (total > termWidth && shrinkable.length > 0) {
+      const column = shrinkable[idx % shrinkable.length];
+      if (widths[column] > minPerColumn) {
+        widths[column] -= 1;
+        total -= 1;
+      }
+      idx += 1;
+      if (idx > 10000) break;
+    }
+  }
+
+  const renderLine = (row: GenericRow, header = false) =>
+    columns
+      .map((column) => {
+        const raw = header ? column.toUpperCase() : String(row[column] ?? "");
+        return truncate(raw, widths[column]).padEnd(widths[column], " ");
+      })
+      .join(" ");
+
+  console.log(renderLine({}, true));
+  console.log(columns.map((column) => "-".repeat(widths[column])).join(" "));
+  for (const row of rows) console.log(renderLine(row));
+}
+
+function outputRows(rows: GenericRow[], format: OutputFormat, opts?: { columns?: string[] }) {
+  if (format === "json") {
+    printJson(rows);
+    return;
+  }
+  if (format === "ndjson") {
+    for (const row of rows) console.log(JSON.stringify(row));
+    return;
+  }
+  renderRows(rows, opts);
+}
+
 function eventRow(item: {
   event?: { name?: string; api_id?: string; url?: string; start_at?: string };
   calendar?: { name?: string };
@@ -52,8 +142,8 @@ function usage() {
   auth import-cookie-header "<cookie header>"
   llm [--json]
   whoami [--json]
-  search "<query>" [--limit 20] [--json]
-  discover --slug <slug> [--limit 20] [--lat N --lng N] [--json]
+  search "<query>" [--limit 20] [--type event,discover,calendar,help] [--format table|json|ndjson] [--columns col1,col2]
+  discover --slug <slug> [--limit 20] [--lat N --lng N] [--format table|json|ndjson] [--columns col1,col2]
   event <url|slug|event_api_id> [--json]`);
 }
 
@@ -78,7 +168,7 @@ Command Contract
 - luma whoami --json
   - Returns authenticated user identity from luma.com/home __NEXT_DATA__.
 - luma search "<query>" --limit N --json
-  - Auth required. Uses /search/get-results and returns event rows.
+  - Auth required. Uses /search/get-results and returns mixed rows (event/discover/calendar/help).
 - luma discover --slug <slug> --limit N [--lat X --lng Y] --json
   - Uses /discover/get-paginated-events. Works with category or place slugs (ai, miami, sf, etc).
 - luma event <url|slug|event_api_id> --json
@@ -227,6 +317,14 @@ export async function runCli(argv: string[]) {
     const query = args[1];
     if (!query) throw new Error('Missing query. Example: luma search "ai miami"');
     const limit = Number(readFlagValue(args, "--limit", "-l") ?? "20");
+    const outputFormat = readFormat(args);
+    const columns = readFlagList(args, "--columns");
+    const typeFlags = readFlagList(args, "--type");
+    const selectedTypes = new Set(
+      (typeFlags.length ? typeFlags : ["event", "discover", "calendar", "help"])
+        .map((item) => item.toLowerCase())
+        .filter((item): item is SearchRowType => ["event", "discover", "calendar", "help"].includes(item)),
+    );
     const session = requireSession();
     const result = await searchEvents(query, session);
     const rows = [
@@ -261,18 +359,18 @@ export async function runCli(argv: string[]) {
         city: "",
         approval_status: "",
       })),
-    ].slice(0, limit);
-    if (hasFlag(args, "--json")) {
-      printJson(rows);
-      return;
-    }
-    console.table(rows);
+    ]
+      .filter((row) => selectedTypes.has(row.type as SearchRowType))
+      .slice(0, limit);
+    outputRows(rows, outputFormat, { columns });
     return;
   }
 
   if (cmd === "discover") {
     const slug = readFlagValue(args, "--slug");
     if (!slug) throw new Error("Missing --slug (e.g. --slug ai)");
+    const outputFormat = readFormat(args);
+    const columns = readFlagList(args, "--columns");
     const session = loadSession() ?? undefined;
     const response = await discoverEvents({
       slug,
@@ -281,12 +379,12 @@ export async function runCli(argv: string[]) {
       longitude: readFlagValue(args, "--lng") ? Number(readFlagValue(args, "--lng")) : undefined,
       session,
     });
-    const entries = response.entries.map(eventRow);
-    if (hasFlag(args, "--json")) {
+    const entries = response.entries.map((entry) => ({ type: "event", ...eventRow(entry) }));
+    if (outputFormat === "json") {
       printJson({ slug, has_more: !!response.has_more, entries });
       return;
     }
-    console.table(entries);
+    outputRows(entries, outputFormat, { columns });
     return;
   }
 

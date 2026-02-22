@@ -65,8 +65,12 @@ This prints an ergonomic, verbose contract for agents:
 ```bash
 luma search "ai miami" --limit 20
 luma search "ai miami" --limit 20 --json
+luma search "ai miami" --type event,discover --format table
+luma search "ai miami" --format ndjson
+luma search "ai miami" --columns type,name,url
 luma discover --slug ai --limit 20
 luma discover --slug miami --limit 30 --json
+luma discover --slug miami --format table --columns name,start_at,url
 luma event https://luma.com/dtpe78ne
 luma event evt-<event_api_id> --json
 ```
