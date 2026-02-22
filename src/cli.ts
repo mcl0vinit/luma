@@ -131,7 +131,7 @@ function llmGuideJson() {
     command_contract: {
       "luma whoami --json": "Returns authenticated user identity from luma.com/home __NEXT_DATA__.",
       'luma search "<query>" --limit N --json':
-        "Auth required. Uses /search/get-results and returns event rows.",
+        "Auth required. Uses /search/get-results and returns mixed rows (event/discover/calendar/help).",
       "luma discover --slug <slug> --limit N [--lat X --lng Y] --json":
         "Uses /discover/get-paginated-events for category/place slugs (ai, miami, sf, etc).",
       "luma event <url|slug|event_api_id> --json":
@@ -228,12 +228,45 @@ export async function runCli(argv: string[]) {
     if (!query) throw new Error('Missing query. Example: luma search "ai miami"');
     const limit = Number(readFlagValue(args, "--limit", "-l") ?? "20");
     const session = requireSession();
-    const events = (await searchEvents(query, session)).slice(0, limit).map(eventRow);
+    const result = await searchEvents(query, session);
+    const rows = [
+      ...(result.events ?? []).map((item) => ({ type: "event", ...eventRow(item) })),
+      ...(result.discover_entities ?? []).map((item) => ({
+        type: "discover",
+        name: item.name ?? "",
+        event_api_id: item.api_id ?? "",
+        url: item.path ? `https://luma.com${item.path}` : item.slug ? `https://luma.com/${item.slug}` : "",
+        start_at: "",
+        calendar: "",
+        city: "",
+        approval_status: "",
+      })),
+      ...(result.calendars ?? []).map((item) => ({
+        type: "calendar",
+        name: item.name ?? "",
+        event_api_id: item.api_id ?? "",
+        url: item.path ? `https://luma.com${item.path}` : item.slug ? `https://luma.com/${item.slug}?k=c` : "",
+        start_at: "",
+        calendar: "",
+        city: "",
+        approval_status: "",
+      })),
+      ...(result.help_pages ?? []).map((item) => ({
+        type: "help",
+        name: item.title ?? "",
+        event_api_id: item.slug ?? "",
+        url: item.slug ? `https://help.luma.com/p/${item.slug}` : "",
+        start_at: "",
+        calendar: "",
+        city: "",
+        approval_status: "",
+      })),
+    ].slice(0, limit);
     if (hasFlag(args, "--json")) {
-      printJson(events);
+      printJson(rows);
       return;
     }
-    console.table(events);
+    console.table(rows);
     return;
   }
 

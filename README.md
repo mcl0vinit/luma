@@ -6,7 +6,7 @@ CLI for authenticated Luma exploration and event data retrieval, designed for bo
 
 - Imports auth from Chrome cookies (Option B).
 - Verifies current logged-in user (`whoami`).
-- Searches events (`search`).
+- Searches across events + discover entities + calendars + help (`search`).
 - Discovers events by city/category slug (`discover`).
 - Resolves event URL/slug to `event_api_id` and fetches full event payload (`event`).
 - Provides a verbose agent-focused usage spec (`llm`).

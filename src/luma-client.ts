@@ -22,6 +22,14 @@ export type DiscoverResponse = {
   next_cursor?: string;
 };
 
+export type SearchResponse = {
+  query?: string;
+  calendars?: Array<{ api_id?: string; name?: string; slug?: string; path?: string }>;
+  events?: LumaEventEntry[];
+  discover_entities?: Array<{ api_id?: string; name?: string; slug?: string; type?: string; path?: string }>;
+  help_pages?: Array<{ title?: string; slug?: string }>;
+};
+
 async function requestJson(url: string, session?: SessionStore, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   if (session) headers.set("cookie", cookieHeaderForLuma(session));
@@ -56,8 +64,7 @@ export async function whoAmI(session: SessionStore) {
 
 export async function searchEvents(query: string, session: SessionStore) {
   const url = `https://api2.luma.com/search/get-results?query=${encodeURIComponent(query)}`;
-  const data = (await requestJson(url, session)) as { events?: LumaEventEntry[] };
-  return data.events ?? [];
+  return (await requestJson(url, session)) as SearchResponse;
 }
 
 export async function discoverEvents(args: {
