@@ -14,7 +14,6 @@ CLI for authenticated Luma exploration and event data retrieval, designed for bo
 ## Install as CLI
 
 ```bash
-cd luma-cli
 bun install -g .
 ```
 
@@ -25,17 +24,13 @@ luma auth list-profiles
 luma auth import-chrome --profile "Default"
 ```
 
-If Keychain lookup fails, set:
+If keychain lookup fails, set a local env var before importing:
 
 ```bash
 export LUMA_CHROME_SAFE_STORAGE_KEY="..."
 ```
 
-Fallback import is available:
-
-```bash
-luma auth import-cookie-header "name=value; name2=value2"
-```
+Do not commit or share auth material.
 
 ## Verify account/auth
 
@@ -65,5 +60,5 @@ luma search "ai miami" --limit 20 --json
 luma discover --slug ai --limit 20
 luma discover --slug miami --limit 30 --json
 luma event https://luma.com/dtpe78ne
-luma event evt-n0AzFHT6CJ3LZUT --json
+luma event evt-<event_api_id> --json
 ```
