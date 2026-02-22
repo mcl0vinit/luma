@@ -1,0 +1,17 @@
+{
+  "name": "luma-cli-tools",
+  "version": "0.1.0",
+  "description": "Bun + TypeScript CLI for Luma",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "luma": "./bin/luma.ts"
+  },
+  "scripts": {
+    "luma": "bun run ./bin/luma.ts",
+    "whoami": "bun run ./bin/luma.ts whoami"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}
