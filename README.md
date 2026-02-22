@@ -1,64 +1,59 @@
-# Luma CLI (Bun + TypeScript)
+# Luma CLI
 
-CLI for authenticated Luma exploration and event data retrieval, designed for both humans and automation/LLM agents.
+CLI for authenticated Luma event discovery and event detail retrieval.
 
-## What it does
+## Features
 
-- Imports auth from Chrome cookies (Option B).
-- Verifies current logged-in user (`whoami`).
-- Searches across events + discover entities + calendars + help (`search`).
-- Discovers events by city/category slug (`discover`).
-- Resolves event URL/slug to `event_api_id` and fetches full event payload (`event`).
-- Provides a verbose agent-focused usage spec (`llm`).
+- Imports auth from local Chrome cookies.
+- Shows active account (`whoami`).
+- Searches across events, discover entities, calendars, and help content.
+- Discovers events by city/category slug.
+- Resolves event URL/slug to `event_api_id` and fetches full event details.
+- Provides an automation-oriented command guide (`luma llm`).
 
-## Install as CLI
+## Install
 
-From GitHub:
+Global install from GitHub:
 
 ```bash
 bun add -g github:mcl0vinit/luma
 ```
 
-From a local checkout:
+Global install from a local checkout:
 
 ```bash
 bun add -g "file:$PWD"
 ```
 
-## Auth from Chrome (Option B)
+## Authenticate from Chrome
 
 ```bash
 luma auth list-profiles
 luma auth import-chrome --profile "Default"
 ```
 
-If keychain lookup fails, set a local env var before importing:
+If keychain lookup fails:
 
 ```bash
 export LUMA_CHROME_SAFE_STORAGE_KEY="..."
+luma auth import-chrome --profile "Default"
 ```
 
-Do not commit or share auth material.
-
-## Verify account/auth
+## Verify account
 
 ```bash
 luma whoami
 luma whoami --json
 ```
 
-## LLM/automation guide
+## Automation guide
 
 ```bash
 luma llm
 luma llm --json
 ```
 
-This prints an ergonomic, verbose contract for agents:
-- auth lifecycle
-- command semantics
-- JSON-first workflow
-- reliability notes (e.g., use `event_api_id` as stable key)
+This prints a verbose command contract and JSON-first workflow notes.
 
 ## Common commands
 
