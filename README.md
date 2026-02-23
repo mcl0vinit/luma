@@ -2,6 +2,8 @@
 
 CLI for authenticated Luma event discovery and event detail retrieval.
 
+> Unofficial project. Not affiliated with or endorsed by Luma.
+
 ## Features
 
 - Imports auth from local Chrome cookies.
@@ -21,11 +23,23 @@ Global install from GitHub:
 bun add -g github:mcl0vinit/luma
 ```
 
+Global run without install:
+
+```bash
+bunx github:mcl0vinit/luma --help
+```
+
 Global install from a local checkout:
 
 ```bash
 bun add -g "file:$PWD"
 ```
+
+## Safety
+
+- `register` and `cancel` perform real account actions unless `--dry-run` is used.
+- Prefer testing with `--dry-run` first.
+- Keep local auth/session files private.
 
 ## Authenticate from Chrome
 
@@ -56,6 +70,12 @@ luma llm --json
 ```
 
 This prints a verbose command contract and JSON-first workflow notes.
+
+## Public-ready notes
+
+- Runtime: Bun (`>=1.1.0`)
+- Main binary: `luma`
+- Issue tracker: `https://github.com/mcl0vinit/luma/issues`
 
 ## Common commands
 

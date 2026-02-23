@@ -1,14 +1,37 @@
 {
   "name": "luma-cli-tools",
   "version": "0.1.0",
-  "description": "Bun + TypeScript CLI for Luma",
-  "private": true,
+  "description": "Unofficial CLI for Luma discovery, account, and registration workflows",
+  "license": "MIT",
+  "author": "mcl0vinit",
+  "homepage": "https://github.com/mcl0vinit/luma#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcl0vinit/luma.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mcl0vinit/luma/issues"
+  },
+  "keywords": [
+    "luma",
+    "cli",
+    "events",
+    "automation",
+    "bun"
+  ],
   "type": "module",
   "bin": {
     "luma": "./bin/luma.ts"
   },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "luma": "bun run ./bin/luma.ts",
+    "help": "bun run ./bin/luma.ts --help",
     "whoami": "bun run ./bin/luma.ts whoami"
   },
   "engines": {
